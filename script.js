@@ -14,9 +14,9 @@ const promoConfig = {
     "🏡 Free BPHTB, AJB, dan Balik Nama (SHM)*",
     "🚗 BONUS: Pagar Minimalis & Carport Premium*",
     "🍳 BONUS: Dapur Bersih + Kitchen Sink Modern*",
-    "📞 Hubungi Marketing Kami Untuk Detail Lebih Lanjut"
+    "📞 Hubungi Marketing Kami Untuk Detail Lebih Lanjut",
   ],
-  validityText: "Promo berlaku s.d. akhir bulan ini!"
+  validityText: "Promo berlaku s.d. akhir bulan ini!",
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initScrollReveal();
   initBackToTop();
   initLazyLoading();
+  initGaleryVideos();
 });
 
 // ==========================================================================
@@ -41,24 +42,24 @@ document.addEventListener("DOMContentLoaded", () => {
 function initPromoBanner() {
   const promoContainer = document.getElementById("promo-banner-content");
   if (!promoContainer) return;
-  
+
   // Clear any placeholder
   promoContainer.innerHTML = "";
-  
+
   // Load promos twice to ensure continuous looping if the content is short
   const promoList = [...promoConfig.promos, ...promoConfig.promos];
-  
+
   promoList.forEach((text) => {
     const item = document.createElement("div");
     item.className = "promo-bar-item";
-    
+
     const bullet = document.createElement("span");
     bullet.className = "promo-bar-bullet";
     bullet.innerHTML = "✦";
-    
+
     const content = document.createElement("span");
     content.textContent = text;
-    
+
     item.appendChild(bullet);
     item.appendChild(content);
     promoContainer.appendChild(item);
@@ -135,7 +136,7 @@ function initMobileNav() {
 
   burgerBtn.addEventListener("click", toggleDrawer);
   overlay.addEventListener("click", closeDrawer);
-  
+
   drawerLinks.forEach((link) => {
     link.addEventListener("click", closeDrawer);
   });
@@ -191,11 +192,11 @@ function initProjectFilter() {
 
       projectCards.forEach((card) => {
         const category = card.getAttribute("data-category");
-        
+
         // Add fade out animation class, then filter
         card.style.opacity = "0";
         card.style.transform = "scale(0.95)";
-        
+
         setTimeout(() => {
           if (filterValue === "all" || category === filterValue) {
             card.style.display = "flex";
@@ -227,14 +228,15 @@ function initKPRCalculator() {
   const installmentOutput = document.getElementById("out-installment");
   const totalOutput = document.getElementById("out-total");
 
-  if (!priceInput || !dpInput || !dpSlider || !tenorInput || !interestInput) return;
+  if (!priceInput || !dpInput || !dpSlider || !tenorInput || !interestInput)
+    return;
 
   // Formatting helpers
   const formatRupiah = (val) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(val);
   };
 
@@ -261,11 +263,11 @@ function initKPRCalculator() {
     // Mortgage formula (Anuitas):
     // P = L * [ i * (1 + i)^n ] / [ (1 + i)^n - 1 ]
     // L = Loan amount, i = monthly interest, n = total months
-    const monthlyInterest = (annualInterest / 100) / 12;
+    const monthlyInterest = annualInterest / 100 / 12;
     const totalMonths = tenor * 12;
 
     const x = Math.pow(1 + monthlyInterest, totalMonths);
-    const monthlyInstallment = loanAmount * (monthlyInterest * x) / (x - 1);
+    const monthlyInstallment = (loanAmount * (monthlyInterest * x)) / (x - 1);
     const totalPayment = monthlyInstallment * totalMonths;
 
     installmentOutput.innerHTML = `${formatRupiah(Math.round(monthlyInstallment))} <span>/ Bulan</span>`;
@@ -276,7 +278,7 @@ function initKPRCalculator() {
   priceInput.addEventListener("input", (e) => {
     let raw = parseNumber(e.target.value);
     e.target.value = raw.toLocaleString("id-ID");
-    
+
     // Sync Down Payment slider to 10%-90% of price
     updateDPSliderRange(raw);
     calculateKPR();
@@ -285,7 +287,7 @@ function initKPRCalculator() {
   dpInput.addEventListener("input", (e) => {
     let raw = parseNumber(e.target.value);
     e.target.value = raw.toLocaleString("id-ID");
-    
+
     // Match DP slider position
     const price = parseNumber(priceInput.value);
     if (price > 0) {
@@ -316,7 +318,7 @@ function initKPRCalculator() {
 
   // Set default placeholder formatted values
   priceInput.value = (500000000).toLocaleString("id-ID"); // 500 Mil
-  dpInput.value = (50000000).toLocaleString("id-ID");     // 50 Mil (10%)
+  dpInput.value = (50000000).toLocaleString("id-ID"); // 50 Mil (10%)
   dpSlider.value = "10";
   calculateKPR();
 }
@@ -348,22 +350,26 @@ function initBookingForm() {
 
     // Direct WhatsApp message formatting
     const waNumber = "6282234567890"; // Replaced with dummy developer WhatsApp number
-    const textMessage = `Halo Clarysa Property, saya ingin booking survey perumahan.%0A%0A` +
+    const textMessage =
+      `Halo Clarysa Property, saya ingin booking survey perumahan.%0A%0A` +
       `*Detail Survey:*%0A` +
       `- Nama: ${nama}%0A` +
       `- WhatsApp: ${phone}%0A` +
-      `- Email: ${email || '-'}%0A` +
+      `- Email: ${email || "-"}%0A` +
       `- Pilihan Unit: ${perumahan}%0A` +
       `- Tanggal: ${tanggal}%0A` +
       `- Jam: ${jam}%0A` +
-      `- Catatan: ${pesan || '-'}`;
+      `- Catatan: ${pesan || "-"}`;
 
     // Show custom toast notification
     showToast("✓ Permintaan Survey Berhasil Dikirim!");
-    
+
     // Redirect to WhatsApp web/app after delay
     setTimeout(() => {
-      window.open(`https://api.whatsapp.com/send?phone=${waNumber}&text=${textMessage}`, "_blank");
+      window.open(
+        `https://api.whatsapp.com/send?phone=${waNumber}&text=${textMessage}`,
+        "_blank",
+      );
       form.reset();
     }, 1500);
   });
@@ -427,7 +433,7 @@ function initGalleryFilter() {
 // ==========================================================================
 function initLightbox() {
   const galleryItems = document.querySelectorAll(".gallery-item img");
-  
+
   // Create lightbox markup programmatically
   const lightbox = document.createElement("div");
   lightbox.className = "lightbox-modal";
@@ -498,14 +504,14 @@ function initScrollReveal() {
 
   const revealOnScroll = () => {
     const windowHeight = window.innerHeight;
-    
+
     revealElements.forEach((el) => {
       const elementTop = el.getBoundingClientRect().top;
       const elementVisible = 100; // Trigger when 100px visible
 
       if (elementTop < windowHeight - elementVisible) {
         el.classList.add("reveal-active");
-        
+
         // Counter animation check
         if (el.classList.contains("about-stats") && !el.dataset.counted) {
           el.dataset.counted = "true";
@@ -528,7 +534,7 @@ function animateCounters() {
     const updateCount = () => {
       const target = Number(counter.getAttribute("data-target"));
       const current = Number(counter.innerText.replace("+", ""));
-      
+
       const increment = Math.ceil(target / speed);
 
       if (current < target) {
@@ -560,7 +566,76 @@ function initBackToTop() {
   toTopBtn.addEventListener("click", () => {
     window.scrollTo({
       top: 0,
-      behavior: "smooth"
+      behavior: "smooth",
+    });
+  });
+}
+
+function initGaleryVideos() {
+  const videoCards = document.querySelectorAll(".video-card");
+  let currentlyPlayingVideo = null;
+
+  videoCards.forEach((card) => {
+    const video = card.querySelector("video");
+    const playBtn = card.querySelector(".play-btn");
+    const soundBtn = card.querySelector(".sound-btn");
+
+    const iconPlay = playBtn.querySelector(".icon-play");
+    const iconPause = playBtn.querySelector(".icon-pause");
+
+    const iconMute = soundBtn.querySelector(".icon-mute");
+    const iconUnmute = soundBtn.querySelector(".icon-unmute");
+
+    // Default: Unmuted (suara aktif saat diputar)
+    video.muted = false;
+
+    // Fungsi Toggle Play/Pause
+    const togglePlay = () => {
+      if (video.paused) {
+        // Hentikan video lain yang sedang berputar agar tidak bentrok
+        if (currentlyPlayingVideo && currentlyPlayingVideo !== video) {
+          currentlyPlayingVideo.pause();
+        }
+
+        video.play();
+        currentlyPlayingVideo = video;
+      } else {
+        video.pause();
+      }
+    };
+
+    // Event listener untuk tombol play/pause & area video
+    playBtn.addEventListener("click", togglePlay);
+
+    // Event listener untuk status video
+    video.addEventListener("play", () => {
+      iconPlay.style.display = "none";
+      iconPause.style.display = "block";
+    });
+
+    video.addEventListener("pause", () => {
+      iconPlay.style.display = "block";
+      iconPause.style.display = "none";
+    });
+
+    video.addEventListener("ended", () => {
+      iconPlay.style.display = "block";
+      iconPause.style.display = "none";
+      video.currentTime = 0;
+    });
+
+    // Toggle Mute/Unmute Suara
+    soundBtn.addEventListener("click", (e) => {
+      e.stopPropagation(); // Mencegah pemicu event play/pause
+      video.muted = !video.muted;
+
+      if (video.muted) {
+        iconMute.style.display = "block";
+        iconUnmute.style.display = "none";
+      } else {
+        iconMute.style.display = "none";
+        iconUnmute.style.display = "block";
+      }
     });
   });
 }
@@ -570,7 +645,7 @@ function initBackToTop() {
 // ==========================================================================
 function initLazyLoading() {
   const lazyImages = document.querySelectorAll("img[loading='lazy']");
-  
+
   if ("IntersectionObserver" in window) {
     const imageObserver = new IntersectionObserver((entries, observer) => {
       entries.forEach((entry) => {
@@ -583,7 +658,7 @@ function initLazyLoading() {
         }
       });
     });
-    
+
     lazyImages.forEach((image) => {
       imageObserver.observe(image);
     });
