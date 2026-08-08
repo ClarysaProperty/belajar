@@ -227,6 +227,8 @@ function initKPRCalculator() {
   const loanOutput = document.getElementById("out-loan");
   const installmentOutput = document.getElementById("out-installment");
   const totalOutput = document.getElementById("out-total");
+  const interestOutput = document.getElementById("out-interest");
+  const resultsPanel = document.querySelector(".calc-results");
 
   if (!priceInput || !dpInput || !dpSlider || !tenorInput || !interestInput)
     return;
@@ -240,87 +242,311 @@ function initKPRCalculator() {
     }).format(val);
   };
 
+  // Strip all non-digit characters to parse integers safely
   const parseNumber = (str) => {
-    return Number(str.replace(/[^0-9.-]+/g, "")) || 0;
+    if (!str) return 0;
+    return Number(str.toString().replace(/[^0-9]/g, "")) || 0;
   };
 
+  // Format numeric input text box dynamically while preserving selection cursor
+  const formatInputOnTheFly = (input) => {
+    const rawVal = input.value;
+    if (rawVal.trim() === "") {
+      input.value = "";
+      return 0;
+    }
+    const selectionStart = input.selectionStart;
+    const oldLength = rawVal.length;
+
+    // Clean non-digits
+    const digits = rawVal.replace(/\D/g, "");
+    if (digits === "") {
+      input.value = "";
+      return 0;
+    }
+
+    const num = parseInt(digits, 10);
+    const formatted = num.toLocaleString("id-ID");
+    input.value = formatted;
+
+    // Adjust cursor position to avoid jumping to the end
+    const newLength = formatted.length;
+    const newStart = selectionStart + (newLength - oldLength);
+    input.setSelectionRange(newStart, newStart);
+
+    return num;
+  };
+
+  // Display validation error message inline
+  const showError = (input, message) => {
+    input.classList.add("invalid");
+    const inputGroup = input.closest(".input-group");
+    if (!inputGroup) return;
+
+    let errorSpan = inputGroup.querySelector(".calc-error-message");
+    if (!errorSpan) {
+      errorSpan = document.createElement("span");
+      errorSpan.className = "calc-error-message";
+      inputGroup.appendChild(errorSpan);
+    }
+    errorSpan.textContent = message;
+    errorSpan.style.display = "block";
+  };
+
+  // Clear validation error message inline
+  const clearError = (input) => {
+    input.classList.remove("invalid");
+    const inputGroup = input.closest(".input-group");
+    if (!inputGroup) return;
+
+    const errorSpan = inputGroup.querySelector(".calc-error-message");
+    if (errorSpan) {
+      errorSpan.textContent = "";
+      errorSpan.style.display = "none";
+    }
+  };
+
+  // Validate all inputs and return boolean status
+  const validateInputs = () => {
+    let isValid = true;
+
+    const priceText = priceInput.value.trim();
+    const dpText = dpInput.value.trim();
+    const price = parseNumber(priceInput.value);
+    const dp = parseNumber(dpInput.value);
+    const annualInterest = parseFloat(interestInput.value);
+    const tenor = parseInt(tenorInput.value, 10);
+
+    // Validate Harga Rumah (Price)
+    if (priceText === "") {
+      showError(priceInput, "Harga rumah tidak boleh kosong.");
+      isValid = false;
+    } else if (price <= 0) {
+      showError(priceInput, "Harga rumah harus lebih besar dari 0.");
+      isValid = false;
+    } else {
+      clearError(priceInput);
+    }
+
+    // Validate DP (Down Payment)
+    if (dpText === "") {
+      clearError(dpInput);
+    } else if (dp < 0) {
+      showError(dpInput, "Uang muka tidak boleh negatif.");
+      isValid = false;
+    } else if (dp > price) {
+      showError(dpInput, "Uang muka tidak boleh melebihi harga rumah.");
+      isValid = false;
+    } else {
+      clearError(dpInput);
+    }
+
+    // Validate Interest Rate
+    if (interestInput.value.trim() === "") {
+      showError(interestInput, "Suku bunga tidak boleh kosong.");
+      isValid = false;
+    } else if (isNaN(annualInterest)) {
+      showError(interestInput, "Suku bunga harus berupa angka.");
+      isValid = false;
+    } else if (annualInterest < 0) {
+      showError(interestInput, "Suku bunga tidak boleh negatif.");
+      isValid = false;
+    } else {
+      clearError(interestInput);
+    }
+
+    // Validate Tenor
+    if (isNaN(tenor) || tenor <= 0) {
+      showError(tenorInput, "Tenor harus lebih besar dari 0.");
+      isValid = false;
+    } else {
+      clearError(tenorInput);
+    }
+
+    return isValid;
+  };
+
+  // Reset outputs to Rp 0
+  const resetOutputs = () => {
+    const price = parseNumber(priceInput.value);
+    const dp = parseNumber(dpInput.value);
+    const loanAmount = Math.max(0, price - dp);
+
+    loanOutput.textContent = formatRupiah(loanAmount);
+    installmentOutput.innerHTML = `${formatRupiah(0)} <span>/ Bulan</span>`;
+    totalOutput.textContent = formatRupiah(0);
+    if (interestOutput) {
+      interestOutput.textContent = formatRupiah(0);
+    }
+  };
+
+  // Perform Mortgage calculation
   const calculateKPR = () => {
     const price = parseNumber(priceInput.value);
     const dp = parseNumber(dpInput.value);
-    const tenor = Number(tenorInput.value);
-    const annualInterest = Number(interestInput.value);
+    const tenor = parseInt(tenorInput.value, 10);
+    const annualInterest = parseFloat(interestInput.value);
 
-    // Calculate loan amount
+    // Calculate Loan Amount (P)
     const loanAmount = Math.max(0, price - dp);
     loanOutput.textContent = formatRupiah(loanAmount);
 
-    if (loanAmount <= 0 || tenor <= 0 || annualInterest <= 0) {
-      installmentOutput.textContent = formatRupiah(0);
-      totalOutput.textContent = formatRupiah(0);
-      return;
+    const totalMonths = tenor * 12;
+    let monthlyInstallment = 0;
+
+    if (loanAmount > 0 && totalMonths > 0) {
+      if (annualInterest === 0) {
+        // Flat monthly installment when interest is 0%
+        monthlyInstallment = loanAmount / totalMonths;
+      } else {
+        // Monthly interest rate (r)
+        const monthlyInterest = annualInterest / 12 / 100;
+        // Formula: M = P * r * (1+r)^n / ((1+r)^n - 1)
+        const factor = Math.pow(1 + monthlyInterest, totalMonths);
+        const denominator = factor - 1;
+
+        if (denominator > 0) {
+          monthlyInstallment = (loanAmount * monthlyInterest * factor) / denominator;
+        } else {
+          monthlyInstallment = 0;
+        }
+      }
     }
 
-    // Mortgage formula (Anuitas):
-    // P = L * [ i * (1 + i)^n ] / [ (1 + i)^n - 1 ]
-    // L = Loan amount, i = monthly interest, n = total months
-    const monthlyInterest = annualInterest / 100 / 12;
-    const totalMonths = tenor * 12;
+    // Safeguard from NaN, Infinity, or negative numbers
+    if (isNaN(monthlyInstallment) || !isFinite(monthlyInstallment) || monthlyInstallment < 0) {
+      monthlyInstallment = 0;
+    }
 
-    const x = Math.pow(1 + monthlyInterest, totalMonths);
-    const monthlyInstallment = (loanAmount * (monthlyInterest * x)) / (x - 1);
     const totalPayment = monthlyInstallment * totalMonths;
+    const totalInterestPaid = Math.max(0, totalPayment - loanAmount);
 
+    // Render formatted Rupiah output
     installmentOutput.innerHTML = `${formatRupiah(Math.round(monthlyInstallment))} <span>/ Bulan</span>`;
     totalOutput.textContent = formatRupiah(Math.round(totalPayment));
+    if (interestOutput) {
+      interestOutput.textContent = formatRupiah(Math.round(totalInterestPaid));
+    }
   };
 
-  // Event handlers for dynamic formatting and KPR sync
-  priceInput.addEventListener("input", (e) => {
-    let raw = parseNumber(e.target.value);
-    e.target.value = raw.toLocaleString("id-ID");
+  // Trigger result section micro-animation
+  const triggerResultAnimation = () => {
+    if (resultsPanel) {
+      resultsPanel.classList.remove("calculate-animate");
+      // Force reflow
+      void resultsPanel.offsetWidth;
+      resultsPanel.classList.add("calculate-animate");
+    }
+  };
 
-    // Sync Down Payment slider to 10%-90% of price
-    updateDPSliderRange(raw);
-    calculateKPR();
-  });
-
-  dpInput.addEventListener("input", (e) => {
-    let raw = parseNumber(e.target.value);
-    e.target.value = raw.toLocaleString("id-ID");
-
-    // Match DP slider position
+  // Sync Down Payment slider to 0%-90% of price
+  const updateDPSliderFromInput = (dpValue) => {
     const price = parseNumber(priceInput.value);
     if (price > 0) {
-      const percentage = (raw / price) * 100;
-      dpSlider.value = Math.min(Math.max(percentage, 0), 100);
+      const percentage = (dpValue / price) * 100;
+      dpSlider.value = Math.min(Math.max(Math.round(percentage), 0), 90);
+    } else {
+      dpSlider.value = "0";
     }
-    calculateKPR();
+  };
+
+  // Event Listeners: Harga Rumah
+  priceInput.addEventListener("input", (e) => {
+    formatInputOnTheFly(e.target);
+    const price = parseNumber(e.target.value);
+    const dp = parseNumber(dpInput.value);
+
+    // Sync Down Payment slider
+    updateDPSliderFromInput(dp);
+
+    if (validateInputs()) {
+      calculateKPR();
+    } else {
+      resetOutputs();
+    }
   });
 
+  // Event Listeners: DP Uang Muka
+  dpInput.addEventListener("input", (e) => {
+    const dp = formatInputOnTheFly(e.target);
+    updateDPSliderFromInput(dp);
+
+    if (validateInputs()) {
+      calculateKPR();
+    } else {
+      resetOutputs();
+    }
+  });
+
+  // Event Listeners: DP Slider (runs during dragging)
   dpSlider.addEventListener("input", (e) => {
     const percentage = Number(e.target.value);
     const price = parseNumber(priceInput.value);
     const calculatedDP = (percentage / 100) * price;
     dpInput.value = Math.round(calculatedDP).toLocaleString("id-ID");
-    calculateKPR();
+
+    // Clear validation error on DP since slider inputs are within limits
+    clearError(dpInput);
+
+    if (validateInputs()) {
+      calculateKPR();
+    } else {
+      resetOutputs();
+    }
   });
 
-  tenorInput.addEventListener("change", calculateKPR);
-  interestInput.addEventListener("input", calculateKPR);
-
-  function updateDPSliderRange(price) {
-    const currentDP = parseNumber(dpInput.value);
-    if (price > 0 && currentDP > 0) {
-      const percentage = (currentDP / price) * 100;
-      dpSlider.value = Math.min(Math.max(percentage, 0), 100);
+  // Event Listeners: DP Slider drag release (triggers animation)
+  dpSlider.addEventListener("change", () => {
+    if (validateInputs()) {
+      calculateKPR();
+      triggerResultAnimation();
     }
+  });
+
+  // Event Listeners: Tenor (dropdown option select)
+  tenorInput.addEventListener("change", () => {
+    if (validateInputs()) {
+      calculateKPR();
+      triggerResultAnimation();
+    } else {
+      resetOutputs();
+    }
+  });
+
+  // Event Listeners: Suku Bunga (Interest Rate)
+  interestInput.addEventListener("input", () => {
+    if (validateInputs()) {
+      calculateKPR();
+    } else {
+      resetOutputs();
+    }
+  });
+
+  // Handle Form Submit (Clicking "Hitung KPR" button or pressing "Enter")
+  const calcForm = priceInput.closest("form");
+  if (calcForm) {
+    calcForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      if (validateInputs()) {
+        calculateKPR();
+        triggerResultAnimation();
+      } else {
+        resetOutputs();
+      }
+    });
   }
 
   // Set default placeholder formatted values
   priceInput.value = (500000000).toLocaleString("id-ID"); // 500 Mil
   dpInput.value = (50000000).toLocaleString("id-ID"); // 50 Mil (10%)
   dpSlider.value = "10";
-  calculateKPR();
+
+  // Initial validation and execution
+  if (validateInputs()) {
+    calculateKPR();
+  } else {
+    resetOutputs();
+  }
 }
 
 // ==========================================================================
